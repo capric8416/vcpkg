@@ -14,6 +14,8 @@ vcpkg_from_github(
         0005-remove-numpy.patch
         0006-create-destination-mlir-directory.patch
         0007-fix-compiler-rt-warnings.patch # fixed in upstream
+        0008-add-missing-case.patch # From upstream https://github.com/llvm/llvm-project/pull/72401
+        0009-add-missing-typename.patch # Fixed in version 18.1.0 and later
 )
 
 vcpkg_check_features(
@@ -103,7 +105,7 @@ if("clang" IN_LIST FEATURES OR "clang-tools-extra" IN_LIST FEATURES)
     # 1) LLVM/Clang tools are relocated from ./bin/ to ./tools/llvm/ (CLANG_TOOLS_INSTALL_DIR=tools/llvm)
     # 2) Clang resource files should be relocated from lib/clang/<major_version> to ../tools/llvm/lib/clang/<major_version>
     string(REGEX MATCH "^[0-9]+" CLANG_VERSION_MAJOR ${VERSION})
-    list(APPEND FEATURE_OPTIONS -DCLANG_RESOURCE_DIR=../tools/llvm/lib/clang/${CLANG_VERSION_MAJOR})
+    list(APPEND FEATURE_OPTIONS -DCLANG_RESOURCE_DIR=lib/clang/${CLANG_VERSION_MAJOR})
 endif()
 if("clang-tools-extra" IN_LIST FEATURES)
     list(APPEND LLVM_ENABLE_PROJECTS "clang-tools-extra")
@@ -157,17 +159,14 @@ if("mlir" IN_LIST FEATURES)
 endif()
 if("openmp" IN_LIST FEATURES)
     list(APPEND LLVM_ENABLE_PROJECTS "openmp")
+    # Perl is required for the OpenMP run-time
+    vcpkg_find_acquire_program(PERL)
     list(APPEND FEATURE_OPTIONS
         -DLIBOMP_INSTALL_ALIASES=OFF
         -DOPENMP_ENABLE_LIBOMPTARGET=OFF # Currently libomptarget cannot be compiled on Windows or MacOS X.
         -DOPENMP_ENABLE_OMPT_TOOLS=OFF # Currently tools are not tested well on Windows or MacOS X.
+        -DPERL_EXECUTABLE=${PERL}
     )
-    # Perl is required for the OpenMP run-time
-    vcpkg_find_acquire_program(PERL)
-    get_filename_component(PERL_PATH ${PERL} DIRECTORY)
-    vcpkg_add_to_path(${PERL_PATH})
-    # Skip post-build check
-    set(VCPKG_POLICY_SKIP_DUMPBIN_CHECKS enabled)
 endif()
 if("polly" IN_LIST FEATURES)
     list(APPEND LLVM_ENABLE_PROJECTS "polly")
@@ -366,7 +365,11 @@ if(empty_dirs)
     endforeach()
 endif()
 
-vcpkg_copy_tool_dependencies(${CURRENT_PACKAGES_DIR}/tools/${PORT})
+vcpkg_copy_tool_dependencies("${CURRENT_PACKAGES_DIR}/tools/${PORT}")
+if(EXISTS "${CURRENT_PACKAGES_DIR}/bin/lib")
+    file(MAKE_DIRECTORY "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
+    file(RENAME "${CURRENT_PACKAGES_DIR}/bin/lib" "${CURRENT_PACKAGES_DIR}/tools/${PORT}/lib")
+endif()
 
 if(NOT DEFINED VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
     file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include"

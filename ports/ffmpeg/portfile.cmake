@@ -1,9 +1,8 @@
-
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO ffmpeg/ffmpeg
-    REF n${VERSION}
-    SHA512 da1b836c8f51cf69f95db750d5da5191a71d534fa7b0f019d6d6454f8dd6db5598789576b4fe5ad983dcd0197b9a7e8f9d43f10707b6d40ac31425da23da35b2
+    REF "n${VERSION}"
+    SHA512 a84209fe36a2a0262ebc34b727e7600b12d4739991a95599d7b4df533791b12e2e43586ccc6ff26aab2f935a3049866204e322ec0c5e49e378fc175ded34e183
     HEAD_REF master
     PATCHES
         0001-create-lib-libraries.patch
@@ -20,7 +19,6 @@ vcpkg_from_github(
         0015-Fix-xml2-detection.patch
         0020-fix-aarch64-libswscale.patch
         0022-fix-iconv.patch
-        0024-fix-gcc13-binutils.patch
 )
 
 if(SOURCE_PATH MATCHES " ")
@@ -33,18 +31,9 @@ if(NOT VCPKG_TARGET_ARCHITECTURE STREQUAL "wasm32")
     vcpkg_add_to_path("${NASM_EXE_PATH}")
 endif()
 
-if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
-    #We're assuming that if we're building for Windows we're using MSVC
-    set(INCLUDE_VAR "INCLUDE")
-    set(LIB_PATH_VAR "LIB")
-else()
-    set(INCLUDE_VAR "CPATH")
-    set(LIB_PATH_VAR "LIBRARY_PATH")
-endif()
-
 set(OPTIONS "--enable-pic --disable-doc --enable-debug --enable-runtime-cpudetect --disable-autodetect")
 
-if(VCPKG_TARGET_IS_WINDOWS)
+if(VCPKG_HOST_IS_WINDOWS)
     vcpkg_acquire_msys(MSYS_ROOT PACKAGES automake1.16)
     set(SHELL "${MSYS_ROOT}/usr/bin/bash.exe")
     vcpkg_add_to_path("${MSYS_ROOT}/usr/share/automake-1.16")
@@ -67,9 +56,12 @@ elseif(VCPKG_TARGET_IS_WINDOWS)
     string(APPEND OPTIONS " --target-os=win32 --enable-w32threads --enable-d3d11va --enable-dxva2 --enable-mediafoundation")
 elseif(VCPKG_TARGET_IS_OSX)
     string(APPEND OPTIONS " --target-os=darwin --enable-appkit --enable-avfoundation --enable-coreimage --enable-audiotoolbox --enable-videotoolbox")
+elseif(VCPKG_TARGET_IS_IOS)
+    string(APPEND OPTIONS " --enable-avfoundation --enable-coreimage --enable-videotoolbox")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
-    string(APPEND OPTIONS " --target-os=android")
-else()
+    string(APPEND OPTIONS " --target-os=android --enable-jni --enable-mediacodec")
+elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "QNX")
+    string(APPEND OPTIONS " --target-os=qnx")
 endif()
 
 if(VCPKG_TARGET_IS_OSX)
@@ -93,8 +85,6 @@ string(APPEND VCPKG_COMBINED_C_FLAGS_DEBUG " -I \"${CURRENT_INSTALLED_DIR}/inclu
 string(APPEND VCPKG_COMBINED_C_FLAGS_RELEASE " -I \"${CURRENT_INSTALLED_DIR}/include\"")
 
 ## Setup vcpkg toolchain
-
-set(ENV_LIB_PATH "$ENV{${LIB_PATH_VAR}}")
 
 set(prog_env "")
 
@@ -283,14 +273,18 @@ endif()
 
 if("aom" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libaom")
+    set(WITH_AOM ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libaom")
+    set(WITH_AOM OFF)
 endif()
 
 if("ass" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libass")
+    set(WITH_ASS ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libass")
+    set(WITH_ASS OFF)
 endif()
 
 if("avisynthplus" IN_LIST FEATURES)
@@ -307,14 +301,18 @@ endif()
 
 if("dav1d" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libdav1d")
+    set(WITH_DAV1D ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libdav1d")
+    set(WITH_DAV1D OFF)
 endif()
 
 if("fdk-aac" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libfdk-aac")
+    set(WITH_AAC ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libfdk-aac")
+    set(WITH_AAC OFF)
 endif()
 
 if("fontconfig" IN_LIST FEATURES)
@@ -337,32 +335,42 @@ endif()
 
 if("iconv" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-iconv")
+    set(WITH_ICONV ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-iconv")
+    set(WITH_ICONV OFF)
 endif()
 
 if("ilbc" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libilbc")
+    set(WITH_ILBC ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libilbc")
+    set(WITH_ILBC OFF)
 endif()
 
 if("lzma" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-lzma")
+    set(WITH_LZMA ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-lzma")
+    set(WITH_LZMA OFF)
 endif()
 
 if("mp3lame" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libmp3lame")
+    set(WITH_MP3LAME ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libmp3lame")
+    set(WITH_MP3LAME OFF)
 endif()
 
 if("modplug" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libmodplug")
+    set(WITH_MODPLUG ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libmodplug")
+    set(WITH_MODPLUG OFF)
 endif()
 
 if("nvcodec" IN_LIST FEATURES)
@@ -374,8 +382,10 @@ endif()
 
 if("opencl" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-opencl")
+    set(WITH_OPENCL ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-opencl")
+    set(WITH_OPENCL OFF)
 endif()
 
 if("opengl" IN_LIST FEATURES)
@@ -386,20 +396,26 @@ endif()
 
 if("openh264" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libopenh264")
+    set(WITH_OPENH264 ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libopenh264")
+    set(WITH_OPENH264 OFF)
 endif()
 
 if("openjpeg" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libopenjpeg")
+    set(WITH_OPENJPEG ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libopenjpeg")
+    set(WITH_OPENJPEG OFF)
 endif()
 
 if("openmpt" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libopenmpt")
+    set(WITH_OPENMPT ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libopenmpt")
+    set(WITH_OPENMPT OFF)
 endif()
 
 if("openssl" IN_LIST FEATURES)
@@ -410,13 +426,17 @@ else()
         string(APPEND OPTIONS " --enable-schannel")
     elseif(VCPKG_TARGET_IS_OSX)
         string(APPEND OPTIONS " --enable-securetransport")
+    elseif(VCPKG_TARGET_IS_IOS)
+        string(APPEND OPTIONS " --enable-securetransport")
     endif()
 endif()
 
 if("opus" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libopus")
+    set(WITH_OPUS ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libopus")
+    set(WITH_OPUS OFF)
 endif()
 
 if("sdl2" IN_LIST FEATURES)
@@ -427,26 +447,34 @@ endif()
 
 if("snappy" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libsnappy")
+    set(WITH_SNAPPY ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libsnappy")
+    set(WITH_SNAPPY OFF)
 endif()
 
 if("soxr" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libsoxr")
+    set(WITH_SOXR ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libsoxr")
+    set(WITH_SOXR OFF)
 endif()
 
 if("speex" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libspeex")
+    set(WITH_SPEEX ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libspeex")
+    set(WITH_SPEEX OFF)
 endif()
 
 if("ssh" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libssh")
+    set(WITH_SSH ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libssh")
+    set(WITH_SSH OFF)
 endif()
 
 if("tensorflow" IN_LIST FEATURES)
@@ -463,44 +491,58 @@ endif()
 
 if("theora" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libtheora")
+    set(WITH_THEORA ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libtheora")
+    set(WITH_THEORA OFF)
 endif()
 
 if("vorbis" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libvorbis")
+    set(WITH_VORBIS ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libvorbis")
+    set(WITH_VORBIS OFF)
 endif()
 
 if("vpx" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libvpx")
+    set(WITH_VPX ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libvpx")
+    set(WITH_VPX OFF)
 endif()
 
 if("webp" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libwebp")
+    set(WITH_WEBP ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libwebp")
+    set(WITH_WEBP OFF)
 endif()
 
 if("x264" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libx264")
+    set(WITH_X264 ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libx264")
+    set(WITH_X264 OFF)
 endif()
 
 if("x265" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libx265")
+    set(WITH_X265 ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libx265")
+    set(WITH_X265 OFF)
 endif()
 
 if("xml2" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libxml2")
+    set(WITH_XML2 ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libxml2")
+    set(WITH_XML2 OFF)
 endif()
 
 if("zlib" IN_LIST FEATURES)
@@ -511,14 +553,18 @@ endif()
 
 if ("srt" IN_LIST FEATURES)
     set(OPTIONS "${OPTIONS} --enable-libsrt")
+    set(WITH_SRT ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libsrt")
+    set(WITH_SRT OFF)
 endif()
 
 if ("qsv" IN_LIST FEATURES)
-    set(OPTIONS "${OPTIONS} --enable-libmfx --enable-encoder=h264_qsv --enable-decoder=h264_qsv")   
+    set(OPTIONS "${OPTIONS} --enable-libmfx --enable-encoder=h264_qsv --enable-decoder=h264_qsv")
+    set(WITH_MFX ON)
 else()
     set(OPTIONS "${OPTIONS} --disable-libmfx")
+    set(WITH_MFX OFF)
 endif()
 
 set(OPTIONS_CROSS "--enable-cross-compile")
@@ -574,8 +620,12 @@ message(STATUS "Building Options: ${OPTIONS}")
 
 # Release build
 if (NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
+    if (VCPKG_DETECTED_MSVC)
+        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/lib\"")
+    else()
+        set(OPTIONS_RELEASE "${OPTIONS_RELEASE} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/lib\"")
+    endif()
     message(STATUS "Building Release Options: ${OPTIONS_RELEASE}")
-    set(ENV{${LIB_PATH_VAR}} "${CURRENT_INSTALLED_DIR}/lib${VCPKG_HOST_PATH_SEPARATOR}${ENV_LIB_PATH}")
     set(ENV{PKG_CONFIG_PATH} "${CURRENT_INSTALLED_DIR}/lib/pkgconfig")
     message(STATUS "Building ${PORT} for Release")
     file(MAKE_DIRECTORY "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel")
@@ -611,8 +661,12 @@ endif()
 
 # Debug build
 if (NOT VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
+    if (VCPKG_DETECTED_MSVC)
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-libpath:\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
+    else()
+        set(OPTIONS_DEBUG "${OPTIONS_DEBUG} --extra-ldflags=-L\"${CURRENT_INSTALLED_DIR}/debug/lib\"")
+    endif()
     message(STATUS "Building Debug Options: ${OPTIONS_DEBUG}")
-    set(ENV{${LIB_PATH_VAR}} "${CURRENT_INSTALLED_DIR}/debug/lib${VCPKG_HOST_PATH_SEPARATOR}${ENV_LIB_PATH}")
     set(ENV{LDFLAGS} "${VCPKG_COMBINED_SHARED_LINKER_FLAGS_DEBUG}")
     set(ENV{PKG_CONFIG_PATH} "${CURRENT_INSTALLED_DIR}/debug/lib/pkgconfig")
     message(STATUS "Building ${PORT} for Debug")
@@ -883,6 +937,6 @@ else()
 endif()
 
 configure_file("${CMAKE_CURRENT_LIST_DIR}/FindFFMPEG.cmake.in" "${CURRENT_PACKAGES_DIR}/share/${PORT}/FindFFMPEG.cmake" @ONLY)
-file(COPY "${CMAKE_CURRENT_LIST_DIR}/vcpkg-cmake-wrapper.cmake" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}")
+configure_file("${CMAKE_CURRENT_LIST_DIR}/vcpkg-cmake-wrapper.cmake" "${CURRENT_PACKAGES_DIR}/share/${PORT}/vcpkg-cmake-wrapper.cmake" @ONLY)
 file(INSTALL "${CMAKE_CURRENT_LIST_DIR}/usage" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}")
 vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/${LICENSE_FILE}")

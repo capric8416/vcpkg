@@ -8,11 +8,16 @@ vcpkg_from_sourceforge(
         fix-checktypesize.patch
         fix-modulejack.patch
         fix-m1-build.patch
+        fix-modules-cmake-cflags.patch
 )
 
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
-    include("${CURRENT_INSTALLED_DIR}/share/yasm-tool-helper/yasm-tool-helper.cmake")
     yasm_tool_helper(APPEND_TO_PATH)
+endif()
+
+vcpkg_list(SET options)
+if(VCPKG_TARGET_IS_WINDOWS)
+    vcpkg_list(APPEND options "-DLIBMPG123_LIBS=-lshlwapi")
 endif()
 
 vcpkg_cmake_configure(
@@ -20,6 +25,7 @@ vcpkg_cmake_configure(
     OPTIONS
         -DUSE_MODULES=OFF
         -DBUILD_PROGRAMS=OFF
+        ${options}
     MAYBE_UNUSED_VARIABLES
         BUILD_PROGRAMS
 )
